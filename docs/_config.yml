@@ -1,0 +1,12 @@
+#markdown: rdiscount
+# pygments: true
+# permalink: /:categories/:title/
+paginate: 5
+
+exclude:
+    - README.md
+
+title: CommonJS: JavaScript Standard Library
+url: http://commonjs.org/docs/
+feed: /atom.xml
+description: "?."

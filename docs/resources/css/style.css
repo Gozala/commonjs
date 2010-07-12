@@ -1,0 +1,39 @@
+@font-face {
+    font-family: 'Share';
+    src: url('../fonts/Share-Regular-webfont.ttf');
+    font-weight: normal;
+    font-style: normal;
+}
+
+header {
+    font-family: 'Share', arial, serif;
+    font-size: 64px;
+    text-shadow: #999 1px 1px 4px;
+}
+header:after {
+    content: url(../images/logo.png);
+    padding-top: 15px;
+}
+body {
+    background: #1C1922;
+    color: #fff;
+    font: 300 100.1% "Helvetica Neue", Helvetica, "Arial Unicode MS", Arial, sans-serif;
+}
+#holder {
+    height: 480px;
+    left: 50%;
+    margin: -240px 0 0 -320px;
+    position: absolute;
+    top: 50%;
+    width: 640px;
+}
+#copy {
+    bottom: 0;
+    font: 300 .7em "Helvetica Neue", Helvetica, "Arial Unicode MS", Arial, sans-serif;
+    position: absolute;
+    right: 1em;
+    text-align: right;
+}
+#copy a {
+    color: #fff;
+}
