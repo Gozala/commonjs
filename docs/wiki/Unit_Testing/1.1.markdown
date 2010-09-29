@@ -1,0 +1,102 @@
+Unit Testing/1.1
+================
+
+STATUS: Draft
+-------------
+
+Specification
+-------------
+
+This specification adds following features no top of [Unit Testing/1.0]:
+
+1. Mechanism for running tests in **fail-slow** mode (where
+failed assertions just log) on the side to **fail-fast** mode
+(where failed assertions fails entire test).
+
+2. Mechanism for running tests in **asynchronous** mode.
+
+
+###"Fail-slow" Mode###
+
+All the test functions that would like to run tests in **fail-slow**
+mode **must** expect to be called by test runner with a first special argument (for simplicity we'll be referring to it as `test` named argument):
+
+- `typeof` `test` is `"function"`. It **may** be called with
+an arguments: assertion function described by [Unit Testing/1.0] followed by any number of arguments.  
+ 
+- `test` function **must** perform assertion by calling first
+argument (assertion function) by passing through all the arguments
+starting form second (including all the optional defaulting to
+`undefined` even if they where not passed to `test`) plus `test` as a last argument.
+- `test` function **must** log results for the performed assertion
+instead of failing a test.
+
+- `test` function **must** log test failure if performed assertion
+throws exception other then `AssertionError`.
+
+- `test` named argument **must** contain following own properties:
+`passes`, `fails`, `errors`. `typeof` of all this properties must
+be `number` and they should represent number of assertions passed,
+assertions failed, errors occurred.
+
+        
+        var assert = require("assert")
+          , planned = require('test-addons').planned
+
+        exports.testSample = function(test) {
+          test(assert.equal, actual, expected, message_opt)
+          test(assert.notEqual, actual, expected)
+          test(planned, actual, expected, message_opt)
+        }
+        
+
+***Notes:***
+
+- Future versions of this spec **may** add additional
+properties to the first named argument `test`.    
+- Test functions are backwards compatible and **must** allow
+running tests in mixed (**fail-slow**, **fail-fast**) mode.
+
+###Asynchronous Mode###
+
+All the test functions that would like to run tests in
+**asynchronous** mode must expect second named argument. Such test
+functions will have special behavior: 
+
+- Asynchronous test functions **must** be called with a second
+argument (for simplicity we'll be referring to it as `done` named
+argument).
+- `typeof` `done` named argument passed to the asynchronous test
+functions must be `"function"`.
+- Test runner **must** consider asynchronous test being finished
+only after calling `done` named argument.
+- All the assertions performed for the test that is finished
+(after it called `done`) **must** be logged as errors for that
+test.
+- All the calls to the `done` function for the test that is
+finished (after it called `done`) **must** be logged as an errors
+for that test.
+
+        
+
+        var assert = require("assert")
+        
+        exports.testAsync = function(test, done) {
+          var xhr = new XMLHttpRequest()
+          xhr.open('GET', 'http://foo.com/', true)
+          xhr.onreadystatechange = function listener(e) {
+            if (req.readyState == 4) {
+              test(assert.equal, xhr.status, 200)
+              test(assert.equal, xhr.responseText, 'bar')
+            }
+          }
+          xhr.send(null)
+          // verify results
+          setTimeout(function timeout() {
+            test(assert.equal, test.passes + test.fails, 2, 'two assertions expected')
+            done()
+          }, 3000)
+        }
+        
+        
+[Unit Testing/1.0]:http://wiki.commonjs.org/wiki/Unit_Testing/1.0
