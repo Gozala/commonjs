@@ -7,96 +7,165 @@ STATUS: Draft
 Specification
 -------------
 
-This specification adds following features no top of [Unit Testing/1.0]:
+This specification adds following no top of [Unit Testing/1.0]:
 
-1. Mechanism for running tests in **fail-slow** mode (where
-failed assertions just log) on the side to **fail-fast** mode
-(where failed assertions fails entire test).
+- Support for running tests in "fail-slow" mode (where failed
+assertions are logged) side by side to the already existing
+"fail-fast" mode (where failed assertions throw `AssertionError`'s
+and fail entire test).
 
-2. Mechanism for running tests in **asynchronous** mode.
+- Support for running asynchronous tests.
 
 
-###"Fail-slow" Mode###
+Fail-slow
+---------
 
-All the test functions that would like to run tests in **fail-slow**
-mode **must** expect to be called by test runner with a first special argument (for simplicity we'll be referring to it as `test` named argument):
+1. `'assert'` module **MUST** exports constructor function `Assert`.
 
-- `typeof` `test` is `"function"`. It **may** be called with
-an arguments: assertion function described by [Unit Testing/1.0] followed by any number of arguments.  
- 
-- `test` function **must** perform assertion by calling first
-argument (assertion function) by passing through all the arguments
-starting form second (including all the optional defaulting to
-`undefined` even if they where not passed to `test`) plus `test` as a last argument.
-- `test` function **must** log results for the performed assertion
-instead of failing a test.
+2. Constructor `Assert` **MUST** return new instance of itself
+when called with or without keyword `new`.
 
-- `test` function **must** log test failure if performed assertion
-throws exception other then `AssertionError`.
+        var assert = require('assert').Assert()
 
-- `test` named argument **must** contain following own properties:
-`passes`, `fails`, `errors`. `typeof` of all this properties must
-be `number` and they should represent number of assertions passed,
-assertions failed, errors occurred.
+3. Instances of `Assert` **MUST** conform to the following interface:
 
-        
-        var assert = require("assert")
-          , planned = require('test-addons').planned
+4. Following logging methods must be defined on instance:
 
-        exports.testSample = function(test) {
-          test(assert.equal, actual, expected, message_opt)
-          test(assert.notEqual, actual, expected)
-          test(planned, actual, expected, message_opt)
+5. Method `pass` that is called by all assertion methods on
+instance if corresponding conditions are met.
+
+        assert.pass(message_opt)
+
+  If assertion method was called with an optional message argument
+  it **MUST** be passed through to the `pass` method.
+
+6. Method `fail` that is called by all assertion methods on
+instance if corresponding conditions are not met.
+
+        assert.fail(
+        { message: message
+        , actual: actual
+        , expected: expected
+        })
+
+  At present only the three keys mentioned above are used and
+  understood by the spec. Implementations or sub modules can
+  pass other keys to the `fail` method (they will be ignored). 
+
+7. Method `error` that is called by test runner if the
+corresponding test throws an exception that is not an
+`AssertionError`.
+
+        assert.error(e)
+
+  Exception thrown must be passed as an argument to the method.
+
+8. Following assertion methods **MUST** be defined on instance:
+`ok, equal, notEqual, deepEqual, notDeepEqual, strictEqual,
+notStrictEqual, throws`. They behave as the same named functions
+exported by `assert` module with one difference that they don't
+throw `AssertionError`'s, instead they log results as was
+described by `pass, fail, error` methods.
+
+9. Test runner must pass a new instance of `Assert` as a first
+argument, to each test it runs, where `Assert` is constructor
+that is defined as a property of an object passed to the `run` function.
+If test runner object does not defines that property
+`Assert` exported by `'assert'` module should be used instead.
+
+10. Custom `Assert` constructor scoped to the test runner object
+provides way for providing custom assertion methods.
+
+        var AssertBase = require('assert').Assert
+        var AssertDescriptor =
+        { constructor: { value: Assert }
+        , inRange: { value: function (lower, inner, upper, message) {
+            if (lower < inner && inner < upper) {
+              this.fail(
+              { actual: inner,
+              , expected: lower + '> ' + ' < ' + upper
+              , operator: "inRange"
+              , message: message
+              })
+            } else {
+              this.pass(message);
+            }
+          }, enumerable: true }
         }
-        
+        function Assert() {
+          return Object.create
+          ( AssertBase.apply(null, arguments)
+          , AssertDescriptor
+          )
+        }
 
-***Notes:***
+Please note that specification does not defines arguments that
+`Assert` may take. It is implementation specific. For this reason
+assert constructors **MUST** pass all the arguments through all
+the arguments to the `Assert`.
 
-- Future versions of this spec **may** add additional
-properties to the first named argument `test`.    
-- Test functions are backwards compatible and **must** allow
-running tests in mixed (**fail-slow**, **fail-fast**) mode.
+###Asynchronous tests###
 
-###Asynchronous Mode###
+All the test functions that run tests asynchronously **MUST**
+expect at least two named arguments. Such a test functions will
+have special behavior: 
 
-All the test functions that would like to run tests in
-**asynchronous** mode must expect second named argument. Such test
-functions will have special behavior: 
+1. Asynchronous test functions **MUST** be called with a second
+argument. (for simplicity we'll be referring to it as `done`).
 
-- Asynchronous test functions **must** be called with a second
-argument (for simplicity we'll be referring to it as `done` named
-argument).
-- `typeof` `done` named argument passed to the asynchronous test
-functions must be `"function"`.
-- Test runner **must** consider asynchronous test being finished
-only after calling `done` named argument.
-- All the assertions performed for the test that is finished
-(after it called `done`) **must** be logged as errors for that
-test.
-- All the calls to the `done` function for the test that is
-finished (after it called `done`) **must** be logged as an errors
-for that test.
+2. `typeof` `done` named argument passed to the asynchronous
+test must be a `"function"`.
 
-        
+3. Test runner **MUST** complete asynchronous test only after
+`done` callback is called.
 
-        var assert = require("assert")
-        
-        exports.testAsync = function(test, done) {
-          var xhr = new XMLHttpRequest()
-          xhr.open('GET', 'http://foo.com/', true)
-          xhr.onreadystatechange = function listener(e) {
-            if (req.readyState == 4) {
-              test(assert.equal, xhr.status, 200)
-              test(assert.equal, xhr.responseText, 'bar')
+4. All the assertions performed for the test after it's completion
+_(after `done` was called)_ **MUST** be logged as errors by calling
+`assert.error` for that test.
+
+5. All the calls to the `done` function for the test after it's
+completion _(after `done` is called)_ **MUST** be logged as an
+errors by calling `assert.error` for that test.
+
+6. After all tests are completed, test runner **MUST** call
+second callback argument that was passed to the `run` function
+exported by `'test'` module.
+
+        require("test").run
+        (
+          { Assert: Assert  // <- was defined in previos example
+          , 'test fail slow async': function (assert, done) {
+              var begin = +new Date()
+              setTimeout(function () {
+                var end = +new Date()
+                assert.inRange(1000 - 100, end - begin, 1000 + 100, "setTimeout accurate");
+                done()
+              }, 1000)
             }
           }
-          xhr.send(null)
-          // verify results
-          setTimeout(function timeout() {
-            test(assert.equal, test.passes + test.fails, 2, 'two assertions expected')
-            done()
-          }, 3000)
-        }
-        
-        
+        , function(result) { 
+            console.log('Passed: ', result.passes.length)
+            console.log('Failed: ', result.fails.length)
+            console.log('Errors: ', result.errors.length)
+          }
+        )
+
+  Callback **MUST** be called with an argument that is an object
+  with a properties: `passes, fails, errors`. Each property 
+  **MUST** be an array of first arguments passed to the
+  corresponding logging method.
+
+        result.passes.length // -> 1
+        result.passes[0] // -> "setTimeout accurate"
+
+Recommendation
+--------------
+
+There are cases where tests **MAY** want to disable logging. Good
+example of that are the tests for test runner itself. For that matter we recommend to disable all the logging for the tests
+whose container objects `mute` property is strictly equal to
+`true`.
+
+
 [Unit Testing/1.0]:http://wiki.commonjs.org/wiki/Unit_Testing/1.0
+
